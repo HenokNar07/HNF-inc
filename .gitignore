@@ -6,3 +6,5 @@ __pycache__/
 .env
 .claude/
 .DS_Store
+build/
+dist/
