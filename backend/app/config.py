@@ -1,8 +1,9 @@
 """Environment-driven settings, read once at import time.
 
-Kept as plain module-level constants (no pydantic-settings dependency)
-consistent with how math_engine.risk_free reads FRED_API_KEY -- one pattern
-for "read this env var, fall back to a sane default" across the codebase.
+Kept as plain module-level constants (no pydantic-settings dependency) --
+CORS origins are the only thing left to configure here. Everything the app
+talks to (yfinance, the Treasury Fiscal Data API) is free and keyless, so
+there's nothing to run this app that requires signing up for anything.
 """
 from __future__ import annotations
 
@@ -19,5 +20,3 @@ CORS_ORIGINS = [
     for origin in os.environ.get("CORS_ORIGINS", _default_origins).split(",")
     if origin.strip()
 ]
-
-FRED_API_KEY = os.environ.get("FRED_API_KEY")

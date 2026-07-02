@@ -98,7 +98,6 @@ def run_mvo(
     lookback_years: float = DEFAULT_LOOKBACK_YEARS,
     max_weight: float | None = DEFAULT_MAX_WEIGHT,
     n_frontier_points: int = DEFAULT_FRONTIER_POINTS,
-    fred_api_key: str | None = None,
 ) -> MVOResult:
     if len(tickers) != len(weights):
         raise ValueError(
@@ -131,12 +130,11 @@ def run_mvo(
     mu_arr = mu[tickers].to_numpy()
     cov_arr = cov.loc[tickers, tickers].to_numpy()
 
-    risk_free_rate, rf_source = get_risk_free_rate(fred_api_key)
+    risk_free_rate, rf_source = get_risk_free_rate()
     if rf_source == "fallback":
         warnings.append(
-            f"FRED_API_KEY not set (or the FRED request failed); using a "
-            f"fallback risk-free rate of {risk_free_rate:.2%}. Set FRED_API_KEY "
-            "in your environment for a live 3-month T-bill rate."
+            f"Couldn't reach the Treasury Fiscal Data API; using a fallback "
+            f"risk-free rate of {risk_free_rate:.2%} instead of a live rate."
         )
 
     eff_max_weight, cap_warnings = _effective_max_weight(len(tickers), max_weight)

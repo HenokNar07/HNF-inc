@@ -33,7 +33,7 @@ class MVOResult(BaseModel):
     tickers: list[str]
     lookback_years: float
     risk_free_rate: float
-    risk_free_source: str  # "fred" or "fallback"
+    risk_free_source: str  # "treasury" or "fallback"
     frontier: list[FrontierPoint]
     max_sharpe: PortfolioStats
     min_variance: PortfolioStats

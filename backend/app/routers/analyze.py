@@ -3,7 +3,6 @@ from fastapi import APIRouter, Request
 from math_engine.pipeline import run_mvo
 from math_engine.types import MVOResult
 
-from ..config import FRED_API_KEY
 from ..rate_limit import ANALYZE_RATE_LIMIT, limiter
 from ..schemas import AnalyzeRequest
 
@@ -27,5 +26,4 @@ def analyze(request: Request, body: AnalyzeRequest) -> MVOResult:
         lookback_years=body.lookback_years,
         max_weight=body.max_weight,
         n_frontier_points=body.n_frontier_points,
-        fred_api_key=FRED_API_KEY,
     )

@@ -69,7 +69,7 @@ def test_run_mvo_sample_portfolio_end_to_end():
     """40% VOO / 35% AAPL / 25% BND -- the sample portfolio from the product spec.
 
     Run with: pytest -m network
-    Requires network access (yfinance); FRED_API_KEY is optional (falls back).
+    Requires network access (yfinance, Treasury Fiscal Data API).
     """
     result = run_mvo(
         tickers=["VOO", "AAPL", "BND"],

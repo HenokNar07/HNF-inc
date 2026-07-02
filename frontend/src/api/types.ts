@@ -28,7 +28,7 @@ export interface MVOResult {
   tickers: string[];
   lookback_years: number;
   risk_free_rate: number;
-  risk_free_source: "fred" | "fallback";
+  risk_free_source: "treasury" | "fallback";
   frontier: FrontierPoint[];
   max_sharpe: PortfolioStats;
   min_variance: PortfolioStats;

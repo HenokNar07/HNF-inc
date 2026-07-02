@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.rate_limit import ANALYZE_RATE_LIMIT, limiter
+from app.rate_limit import ANALYZE_RATE_LIMIT
 
 client = TestClient(app)
 
@@ -105,9 +105,8 @@ def test_analyze_rate_limit_returns_429():
     # Fire one more request than the configured per-minute limit, using a
     # single-ticker body so each call fails fast on validation (400) rather
     # than hitting yfinance -- we're testing the limiter, not the pipeline.
-    # Reset first so counts from earlier tests in this file (which share the
-    # same TestClient IP) don't throw off the boundary.
-    limiter.reset()
+    # (The autouse _reset_rate_limiter fixture already gives this test a
+    # clean bucket to start from.)
     limit = int(ANALYZE_RATE_LIMIT.split("/")[0])
     responses = [
         client.post("/api/analyze", json={"tickers": ["AAPL"], "weights": [1.0]})
@@ -132,9 +131,12 @@ def test_analyze_sample_portfolio_end_to_end():
 
 @pytest.mark.network
 def test_analyze_invalid_ticker_returns_400():
+    # Syntactically valid (<=10 chars, matches the ticker pattern) but not a
+    # real security -- must reach the business-logic 400, not the 422 a
+    # too-long or malformed string would trigger at request validation.
     resp = client.post(
         "/api/analyze",
-        json={"tickers": ["AAPL", "NOTAREALTICKERXYZ"], "weights": [50, 50]},
+        json={"tickers": ["AAPL", "ZZFAKEZZ"], "weights": [50, 50]},
     )
     assert resp.status_code == 400
 
