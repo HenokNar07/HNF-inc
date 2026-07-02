@@ -123,18 +123,36 @@ A thin HTTP wrapper -- no math lives here, everything is a call-through to
 |---|---|
 | `app/main.py` | App setup, CORS, and exception handlers that map math_engine's domain errors to clean HTTP status codes. |
 | `app/routers/analyze.py` | `POST /api/analyze` -- calls `run_mvo`, returns `MVOResult` directly as the response model. |
-| `app/routers/explain.py` | `POST /api/explain` -- takes back exactly what `/api/analyze` returned, asks Claude to narrate it. |
-| `app/claude_client.py` | The only file that talks to Anthropic. Builds a prompt from pre-computed numbers; the system prompt hard-bans advice language and requires jargon to be defined inline. |
+| `app/routers/explain.py` | `POST /api/explain` -- takes back exactly what `/api/analyze` returned, fills in a fixed prose template with those numbers. |
+| `app/explain_template.py` | The narration logic. No external API call -- deterministic Python string formatting, gated by the same "never invent a number" rule as before. |
 | `app/schemas.py` | Request models. Response models reuse `math_engine.types` directly. |
-| `app/config.py` | Env var reads (CORS origins, API keys, model name). |
+| `app/config.py` | Env var reads (CORS origins, ticker limits). |
+| `app/rate_limit.py` | Per-IP rate limits on `/api/analyze` and `/api/explain` (20/minute each), so the API can't be hammered into abusing yfinance or burning CPU. |
 
 Error mapping (registered in `main.py`): any `ValueError` (covers
 `InsufficientAssetsError` and `TickerDataError`, both subclasses) -> 400;
-`OptimizationError` -> 500; missing `ANTHROPIC_API_KEY` -> 503. Pydantic
-request validation failures (e.g. missing required fields) are handled by
-FastAPI itself as 422, before your code even runs -- that's why "single
-ticker" is a 400 (a valid request that fails business rules) but "missing
-`weights` field" is a 422 (the request itself is malformed).
+`OptimizationError` -> 500. Pydantic request validation failures (e.g.
+missing required fields) are handled by FastAPI itself as 422, before your
+code even runs -- that's why "single ticker" is a 400 (a valid request that
+fails business rules) but "missing `weights` field" is a 422 (the request
+itself is malformed).
+
+### Why `/api/explain` isn't backed by an LLM
+
+The original plan (and an earlier version of this codebase) had `/api/explain`
+call the Claude API to narrate the computed numbers. It worked, and it was
+genuinely cheap (a fraction of a cent per call) -- but it added a real
+dependency: an API key to manage, a billing account to cap, a third-party
+service that could change pricing or behavior, and a vendor relationship
+outside this project's control. For a feature that only needs to narrate
+three or four numbers in a fixed structure -- "here's your Sharpe ratio,
+here's the gap, here's which weights would change" -- a template covers the
+same ground without any of that. `explain_template.py` fills in fixed prose
+with the same numbers an LLM version would have received, deterministically,
+for free, with zero external dependency. If a future version needs genuinely
+open-ended narration (not just filling in a fixed structure), an LLM would
+be the right tool again -- this isn't a permanent rejection of using one,
+just a recognition that this particular feature didn't need one.
 
 ### Setup & run
 
@@ -150,8 +168,8 @@ uvicorn app.main:app --reload --port 8000
 
 ```bash
 cd backend
-pytest                 # offline: health check, error-path status codes (400/422/503)
-pytest -m network       # + real yfinance calls and (if ANTHROPIC_API_KEY is set) a real Claude call
+pytest                 # offline: health check, error-path status codes, explain-template output
+pytest -m network       # + real yfinance calls
 ```
 
 ### A real bug this layer caught
@@ -236,16 +254,16 @@ holdings form -> loading state -> chart renders with correct frontier curve,
 CAL, and both dots (colors confirmed programmatically:
 `rgb(22,163,74)` green for max-Sharpe, `rgb(234,88,12)` orange for the
 user's portfolio) -> Sharpe comparison and optimal-weights bar chart match
-the backend's numbers exactly -> clicking "Explain this to me" without
-`ANTHROPIC_API_KEY` set surfaces the backend's 503 message cleanly in the
-UI instead of a broken request. Production build (`npm run build`) also
-verified clean, with Tailwind's compiled CSS output (11.26 kB) confirming
-the utility-class fix actually took effect, not just in dev mode.
+the backend's numbers exactly -> clicking "Explain this to me" renders the
+templated explanation instantly, no API key or setup required. Production
+build (`npm run build`) also verified clean, with Tailwind's compiled CSS
+output (11.26 kB) confirming the utility-class fix actually took effect,
+not just in dev mode.
 
 ## What's left
 
-- Wire `ANTHROPIC_API_KEY` and `FRED_API_KEY` for live AI explanations and
-  live risk-free rates (both currently fall back gracefully without them).
+- Wire `FRED_API_KEY` for a live risk-free rate (currently falls back
+  gracefully to a hardcoded approximate rate without it).
 - Deployment: Vercel (frontend) + Railway (backend), per the original spec --
   not attempted yet, local dev only so far.
 - Optional: code-split the frontend bundle (Recharts+d3 pushes the JS bundle

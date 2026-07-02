@@ -21,9 +21,3 @@ CORS_ORIGINS = [
 ]
 
 FRED_API_KEY = os.environ.get("FRED_API_KEY")
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
-
-# claude-sonnet-5 balances quality and latency for a short narration task;
-# not the reasoning-heaviest model since this is templated explanation, not
-# open-ended analysis.
-ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")

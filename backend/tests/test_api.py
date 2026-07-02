@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.rate_limit import ANALYZE_RATE_LIMIT, limiter
 
 client = TestClient(app)
 
@@ -30,42 +31,90 @@ def test_analyze_missing_fields_returns_422():
     assert resp.status_code == 422  # pydantic request validation, not a domain error
 
 
-def test_explain_without_api_key_returns_503(monkeypatch):
-    monkeypatch.setattr("app.claude_client.ANTHROPIC_API_KEY", None)
-    # Minimal-but-valid MVOResult payload -- shape matches math_engine.types.MVOResult.
-    fake_result = {
-        "tickers": ["VOO", "BND"],
-        "lookback_years": 5,
-        "risk_free_rate": 0.045,
-        "risk_free_source": "fallback",
-        "frontier": [],
-        "max_sharpe": {
-            "weights": {"VOO": 0.6, "BND": 0.4},
-            "expected_return": 0.10,
-            "std_dev": 0.12,
-            "sharpe_ratio": 0.5,
-        },
-        "min_variance": {
-            "weights": {"VOO": 0.3, "BND": 0.7},
-            "expected_return": 0.06,
-            "std_dev": 0.08,
-            "sharpe_ratio": 0.2,
-        },
-        "current_portfolio": {
-            "weights": {"VOO": 0.5, "BND": 0.5},
-            "expected_return": 0.08,
-            "std_dev": 0.10,
-            "sharpe_ratio": 0.35,
-        },
-        "asset_stats": [
-            {"ticker": "VOO", "mean_return": 0.13, "std_dev": 0.16, "beta": 1.0},
-            {"ticker": "BND", "mean_return": 0.0, "std_dev": 0.06, "beta": 0.25},
-        ],
-        "warnings": [],
-    }
-    resp = client.post("/api/explain", json={"result": fake_result})
-    assert resp.status_code == 503
-    assert "ANTHROPIC_API_KEY" in resp.json()["detail"]
+def test_analyze_too_many_tickers_returns_422():
+    # Guards against someone forcing an expensive computation with an
+    # unbounded ticker list -- see MAX_TICKERS in schemas.py.
+    n = 20
+    resp = client.post(
+        "/api/analyze",
+        json={"tickers": [f"T{i}" for i in range(n)], "weights": [1] * n},
+    )
+    assert resp.status_code == 422
+
+
+def test_analyze_invalid_ticker_format_returns_422():
+    resp = client.post(
+        "/api/analyze",
+        json={"tickers": ["AAPL", "'; DROP TABLE--"], "weights": [50, 50]},
+    )
+    assert resp.status_code == 422
+
+
+FAKE_MVO_RESULT = {
+    "tickers": ["VOO", "BND"],
+    "lookback_years": 5,
+    "risk_free_rate": 0.045,
+    "risk_free_source": "fallback",
+    "frontier": [],
+    "max_sharpe": {
+        "weights": {"VOO": 0.6, "BND": 0.4},
+        "expected_return": 0.10,
+        "std_dev": 0.12,
+        "sharpe_ratio": 0.5,
+    },
+    "min_variance": {
+        "weights": {"VOO": 0.3, "BND": 0.7},
+        "expected_return": 0.06,
+        "std_dev": 0.08,
+        "sharpe_ratio": 0.2,
+    },
+    "current_portfolio": {
+        "weights": {"VOO": 0.5, "BND": 0.5},
+        "expected_return": 0.08,
+        "std_dev": 0.10,
+        "sharpe_ratio": 0.35,
+    },
+    "asset_stats": [
+        {"ticker": "VOO", "mean_return": 0.13, "std_dev": 0.16, "beta": 1.0},
+        {"ticker": "BND", "mean_return": 0.0, "std_dev": 0.06, "beta": 0.25},
+    ],
+    "warnings": [],
+}
+
+
+def test_explain_is_deterministic_and_needs_no_api_key():
+    # No external API, so no key to set up and no 503 case -- this always works.
+    resp = client.post("/api/explain", json={"result": FAKE_MVO_RESULT})
+    assert resp.status_code == 200
+    explanation = resp.json()["explanation"]
+    assert "VOO" in explanation and "BND" in explanation
+    assert "Sharpe" in explanation
+    # weights differ (0.6/0.4 optimal vs 0.5/0.5 current), so the weight-change
+    # paragraph should narrate a shift, not "keep every position unchanged".
+    assert "unchanged" not in explanation.lower() or "roughly unchanged" in explanation.lower()
+
+
+def test_explain_same_output_for_same_input():
+    # Template-based, so no run-to-run variance -- unlike an LLM call.
+    resp1 = client.post("/api/explain", json={"result": FAKE_MVO_RESULT})
+    resp2 = client.post("/api/explain", json={"result": FAKE_MVO_RESULT})
+    assert resp1.json()["explanation"] == resp2.json()["explanation"]
+
+
+def test_analyze_rate_limit_returns_429():
+    # Fire one more request than the configured per-minute limit, using a
+    # single-ticker body so each call fails fast on validation (400) rather
+    # than hitting yfinance -- we're testing the limiter, not the pipeline.
+    # Reset first so counts from earlier tests in this file (which share the
+    # same TestClient IP) don't throw off the boundary.
+    limiter.reset()
+    limit = int(ANALYZE_RATE_LIMIT.split("/")[0])
+    responses = [
+        client.post("/api/analyze", json={"tickers": ["AAPL"], "weights": [1.0]})
+        for _ in range(limit + 1)
+    ]
+    assert responses[-1].status_code == 429
+    assert all(r.status_code == 400 for r in responses[:-1])
 
 
 @pytest.mark.network

@@ -1,22 +1,29 @@
-"""FastAPI app: a thin HTTP wrapper around math_engine, plus one AI narration
-endpoint. All the actual math lives in math_engine and was verified there
-before this layer existed -- nothing here recomputes or double-checks numbers.
+"""FastAPI app: a thin HTTP wrapper around math_engine, plus a template-based
+narration endpoint. All the actual math lives in math_engine and was verified
+there before this layer existed -- nothing here recomputes or double-checks
+numbers.
 """
 from __future__ import annotations
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from math_engine.optimize import OptimizationError
 
 from .config import CORS_ORIGINS
+from .rate_limit import limiter
 from .routers import analyze, explain
 
 app = FastAPI(
     title="portfolio-frontier API",
-    description="Deterministic mean-variance analysis, with an optional AI narration layer.",
+    description="Deterministic mean-variance analysis, with a template-based narration layer.",
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,12 +45,6 @@ async def value_error_handler(request: Request, exc: ValueError) -> JSONResponse
 @app.exception_handler(OptimizationError)
 async def optimization_error_handler(request: Request, exc: OptimizationError) -> JSONResponse:
     return JSONResponse(status_code=500, content={"detail": f"Optimization failed: {exc}"})
-
-
-@app.exception_handler(RuntimeError)
-async def runtime_error_handler(request: Request, exc: RuntimeError) -> JSONResponse:
-    # Currently only raised by claude_client when ANTHROPIC_API_KEY is missing.
-    return JSONResponse(status_code=503, content={"detail": str(exc)})
 
 
 @app.get("/api/health")
