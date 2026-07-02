@@ -34,6 +34,16 @@ price data (Yahoo Finance) and the risk-free rate (the U.S. Treasury's own
 public API) are both free and keyless. You need Python 3.9+ and Node.js
 18+ installed.
 
+First, get the code:
+
+```bash
+git clone https://github.com/HenokNar07/HNF-inc.git
+cd HNF-inc
+```
+
+Everything below assumes your terminal is inside that `HNF-inc` folder --
+if a command says "no such file or directory," that's almost always why.
+
 Two things need to run at once: the backend (does the math) and the
 frontend (the app you actually look at).
 
