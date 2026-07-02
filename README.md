@@ -1,10 +1,9 @@
-# HNF, inc.
+# HNF, inc. -- Portfolio Lens (BETA version)
 
 Real mean-variance (Markowitz) portfolio analysis, explained in plain
-English. Enter your holdings, see where your portfolio sits on the
+simple English. Enter your holdings, see where your portfolio sits on the
 efficient frontier, and find the mathematically optimal allocation for
-the same assets -- with a sidebar that explains what all of it means, no
-finance background required.
+the same assets, with a sidebar that explains what it means in a nutshell in seconds. Brought by Henok Nar
 
 > **Educational tool -- not financial advice.** Nothing in this app is a
 > recommendation to buy, sell, or hold anything. It shows you what the math
