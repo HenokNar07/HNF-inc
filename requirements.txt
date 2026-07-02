@@ -11,7 +11,18 @@ uvicorn[standard]>=0.30
 httpx>=0.27
 slowapi>=0.1.9
 
-# Editable install of math_engine itself, so `import math_engine` works from
-# backend/ without a separate build step -- lets hosts like Railway deploy
-# straight from `pip install -r requirements.txt` with no custom build command.
--e .
+# Install math_engine itself (non-editable), so `import math_engine` works
+# from backend/ without a separate build step -- lets hosts like Railway
+# deploy straight from `pip install -r requirements.txt` with no custom
+# build command. Deliberately NOT `-e .`: an editable install only points
+# back at the source tree on disk, which doesn't survive a multi-stage
+# build where the runtime container isn't the same filesystem as the build
+# container (confirmed on Railway -- the build succeeded, `import
+# math_engine` then failed at runtime with ModuleNotFoundError). A plain
+# install copies the package into site-packages, which is self-contained
+# and works regardless of what the runtime container does or doesn't keep
+# from the build stage.
+#
+# For local development, prefer `pip install -e ..` separately (see
+# README) so edits to math_engine are picked up without reinstalling.
+.
