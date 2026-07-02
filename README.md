@@ -1,4 +1,4 @@
-# portfolio-frontier
+# HNF, inc.
 
 Mean-variance portfolio analysis: real Markowitz math, explained in plain
 language. This repo is being built bottom-up: **math engine first** (this
