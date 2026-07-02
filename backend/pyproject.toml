@@ -1,0 +1,6 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "network: tests that hit real APIs (yfinance/FRED/Anthropic), skipped by default",
+]
+addopts = "-m 'not network'"
