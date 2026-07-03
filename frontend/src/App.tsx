@@ -8,6 +8,7 @@ import { SharpeComparison } from "./components/SharpeComparison";
 import { OptimalWeightsBar } from "./components/OptimalWeightsBar";
 import { useAnalyze } from "./hooks/useAnalyze";
 import { useExplain } from "./hooks/useExplain";
+import type { ReturnModel } from "./api/types";
 
 const SAMPLE_HOLDINGS: HoldingRow[] = [
   { id: crypto.randomUUID(), ticker: "VOO", weight: "40" },
@@ -26,6 +27,7 @@ function EmptyState({ children }: { children: React.ReactNode }) {
 function App() {
   const [holdings, setHoldings] = useState<HoldingRow[]>(SAMPLE_HOLDINGS);
   const [lookbackYears, setLookbackYears] = useState(5);
+  const [returnModel, setReturnModel] = useState<ReturnModel>("historical");
 
   const { result, loading, error, analyze } = useAnalyze();
   const warnings = result?.warnings ?? [];
@@ -37,6 +39,7 @@ function App() {
       tickers: holdings.map((h) => h.ticker.trim().toUpperCase()),
       weights: holdings.map((h) => Number(h.weight)),
       lookback_years: lookbackYears,
+      return_model: returnModel,
     });
   };
 
@@ -51,6 +54,8 @@ function App() {
               onHoldingsChange={setHoldings}
               lookbackYears={lookbackYears}
               onLookbackYearsChange={setLookbackYears}
+              returnModel={returnModel}
+              onReturnModelChange={setReturnModel}
               onSubmit={handleAnalyze}
               loading={loading}
               error={error}

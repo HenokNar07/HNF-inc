@@ -9,6 +9,7 @@ export interface AssetStats {
   mean_return: number;
   std_dev: number;
   beta: number;
+  factor_betas: Record<string, number> | null;
 }
 
 export interface PortfolioStats {
@@ -24,9 +25,12 @@ export interface FrontierPoint {
   weights: Record<string, number>;
 }
 
+export type ReturnModel = "historical" | "fama_french";
+
 export interface MVOResult {
   tickers: string[];
   lookback_years: number;
+  return_model: ReturnModel;
   risk_free_rate: number;
   risk_free_source: "treasury" | "fallback";
   frontier: FrontierPoint[];
@@ -43,4 +47,5 @@ export interface AnalyzeRequest {
   lookback_years?: number;
   max_weight?: number | null;
   n_frontier_points?: number;
+  return_model?: ReturnModel;
 }

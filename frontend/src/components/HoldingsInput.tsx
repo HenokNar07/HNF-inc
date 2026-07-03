@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import type { ChangeEvent } from "react";
+import type { ReturnModel } from "../api/types";
 
 export interface HoldingRow {
   id: string;
@@ -32,17 +33,28 @@ interface HoldingsInputProps {
   onHoldingsChange: (holdings: HoldingRow[]) => void;
   lookbackYears: number;
   onLookbackYearsChange: (years: number) => void;
+  returnModel: ReturnModel;
+  onReturnModelChange: (model: ReturnModel) => void;
   onSubmit: () => void;
   loading: boolean;
   error: string | null;
   warnings: string[];
 }
 
+const RETURN_MODEL_HELP: Record<ReturnModel, string> = {
+  historical:
+    "Expected return for each holding is its own historical average return.",
+  fama_french:
+    "Expected return comes from each holding's exposure to three market risk factors (market, size, value) -- not from macroeconomic forecasts or trend prediction.",
+};
+
 export function HoldingsInput({
   holdings,
   onHoldingsChange,
   lookbackYears,
   onLookbackYearsChange,
+  returnModel,
+  onReturnModelChange,
   onSubmit,
   loading,
   error,
@@ -99,6 +111,31 @@ export function HoldingsInput({
             className="w-14 rounded-md border border-border bg-input px-2 py-1 text-ink"
           />
         </div>
+      </div>
+
+      <div className="mb-5">
+        <span className="text-xs uppercase tracking-wider text-ink-muted">Expected return model</span>
+        <div className="mt-2 inline-flex rounded-md border border-border bg-input p-0.5 text-sm">
+          <button
+            type="button"
+            onClick={() => onReturnModelChange("historical")}
+            className={`rounded px-3 py-1.5 transition-colors ${
+              returnModel === "historical" ? "bg-primary text-black" : "text-ink-muted hover:text-ink"
+            }`}
+          >
+            Historical average
+          </button>
+          <button
+            type="button"
+            onClick={() => onReturnModelChange("fama_french")}
+            className={`rounded px-3 py-1.5 transition-colors ${
+              returnModel === "fama_french" ? "bg-primary text-black" : "text-ink-muted hover:text-ink"
+            }`}
+          >
+            Fama-French 3-factor
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-ink-muted">{RETURN_MODEL_HELP[returnModel]}</p>
       </div>
 
       <div className="mb-2 grid grid-cols-[1fr_1fr_28px] gap-2 text-xs uppercase tracking-wider text-ink-muted">
