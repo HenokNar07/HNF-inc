@@ -15,6 +15,7 @@ module.exports = {
       colors: {
         surface: "var(--color-surface)",
         card: "var(--color-card)",
+        input: "var(--color-input)",
         border: "var(--color-border)",
         ink: "var(--color-ink)",
         "ink-muted": "var(--color-ink-muted)",

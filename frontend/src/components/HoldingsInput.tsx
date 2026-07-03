@@ -73,15 +73,21 @@ export function HoldingsInput({
   };
 
   const weightSum = holdings.reduce((sum, row) => sum + (Number(row.weight) || 0), 0);
+  const isBalanced = Math.abs(weightSum - 100) <= 0.5;
   const canSubmit = holdings.every((row) => row.ticker.trim() !== "" && row.weight !== "");
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-ink">Your holdings</h2>
-        <div className="flex items-center gap-3 text-sm text-ink-muted">
-          <label htmlFor="lookback" className="whitespace-nowrap">
-            Lookback (years)
+    <section>
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl text-ink">Holdings</h2>
+          <p className="mt-1 text-sm text-ink-muted">
+            Enter ticker symbols and portfolio weights. Weights must sum to 100%.
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 pt-1 text-xs text-ink-muted">
+          <label htmlFor="lookback" className="whitespace-nowrap uppercase tracking-wider">
+            Lookback (yrs)
           </label>
           <input
             id="lookback"
@@ -90,28 +96,34 @@ export function HoldingsInput({
             max={30}
             value={lookbackYears}
             onChange={(e) => onLookbackYearsChange(Number(e.target.value))}
-            className="w-16 rounded-lg border border-border px-2 py-1 text-ink"
+            className="w-14 rounded-md border border-border bg-input px-2 py-1 text-ink"
           />
         </div>
       </div>
 
+      <div className="mb-2 grid grid-cols-[1fr_1fr_28px] gap-2 text-xs uppercase tracking-wider text-ink-muted">
+        <span>Ticker</span>
+        <span>Weight</span>
+        <span />
+      </div>
+
       <div className="flex flex-col gap-2">
         {holdings.map((row) => (
-          <div key={row.id} className="flex items-center gap-2">
+          <div key={row.id} className="grid grid-cols-[1fr_1fr_28px] items-center gap-2">
             <input
               type="text"
               placeholder="Ticker"
               value={row.ticker}
               onChange={(e) => updateRow(row.id, { ticker: e.target.value.toUpperCase() })}
-              className="w-28 rounded-lg border border-border px-3 py-2 text-sm uppercase text-ink placeholder:normal-case placeholder:text-ink-muted"
+              className="rounded-md border border-border bg-input px-3 py-2.5 text-sm uppercase text-ink placeholder:normal-case placeholder:text-ink-muted"
             />
-            <div className="relative flex-1 max-w-[140px]">
+            <div className="relative">
               <input
                 type="number"
                 placeholder="Weight"
                 value={row.weight}
                 onChange={(e) => updateRow(row.id, { weight: e.target.value })}
-                className="w-full rounded-lg border border-border px-3 py-2 pr-7 text-sm text-ink placeholder:text-ink-muted"
+                className="w-full rounded-md border border-border bg-input px-3 py-2.5 pr-7 text-sm text-ink placeholder:text-ink-muted"
               />
               <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-muted">
                 %
@@ -122,7 +134,7 @@ export function HoldingsInput({
               onClick={() => removeRow(row.id)}
               disabled={holdings.length <= 1}
               aria-label={`Remove ${row.ticker || "row"}`}
-              className="rounded-lg px-2 py-2 text-ink-muted hover:bg-surface hover:text-ink disabled:opacity-30"
+              className="rounded-md px-1.5 py-2.5 text-ink-muted hover:text-ink disabled:opacity-30"
             >
               &#10005;
             </button>
@@ -130,46 +142,44 @@ export function HoldingsInput({
         ))}
       </div>
 
-      <div className="mt-3 flex items-center justify-between">
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={addRow}
-            className="rounded-lg border border-border px-3 py-1.5 text-sm text-ink hover:bg-surface"
-          >
-            + Add holding
-          </button>
+      <p className={`mt-3 text-sm ${isBalanced ? "text-primary" : "text-ink-muted"}`}>
+        {weightSum.toFixed(0)}% total{!isBalanced ? " (will be normalized to 100%)" : ""}
+      </p>
+
+      <div className="mt-3 flex items-center gap-4 text-sm">
+        <button type="button" onClick={addRow} className="text-primary hover:text-primary-hover">
+          + Add holding
+        </button>
+        <span className="text-ink-muted">
+          or{" "}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="rounded-lg border border-border px-3 py-1.5 text-sm text-ink hover:bg-surface"
+            className="underline hover:text-ink"
           >
-            Upload CSV
+            upload a CSV export from your brokerage
           </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,text/csv"
-            className="hidden"
-            onChange={handleCsvUpload}
-          />
-        </div>
-        <span className="text-sm text-ink-muted">
-          Total: {weightSum.toFixed(1)}%{Math.abs(weightSum - 100) > 0.5 ? " (will be normalized)" : ""}
         </span>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          className="hidden"
+          onChange={handleCsvUpload}
+        />
       </div>
 
       <button
         type="button"
         onClick={onSubmit}
         disabled={!canSubmit || loading}
-        className="mt-4 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-5 w-full rounded-md bg-primary px-4 py-3 text-sm font-medium text-black transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {loading ? "Analyzing..." : "Analyze portfolio"}
+        {loading ? "Analyzing..." : "Analyze"}
       </button>
 
       {error && (
-        <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p className="mt-3 rounded-md border border-red-900/50 bg-red-950/40 px-3 py-2 text-sm text-red-400">
           {error}
         </p>
       )}
@@ -178,7 +188,7 @@ export function HoldingsInput({
           {warnings.map((warning) => (
             <li
               key={warning}
-              className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+              className="rounded-md border border-amber-900/50 bg-amber-950/40 px-3 py-2 text-sm text-amber-400"
             >
               {warning}
             </li>

@@ -15,9 +15,9 @@ const SAMPLE_HOLDINGS: HoldingRow[] = [
   { id: crypto.randomUUID(), ticker: "BND", weight: "25" },
 ];
 
-function EmptyStateCard({ children }: { children: React.ReactNode }) {
+function EmptyState({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-[200px] items-center justify-center rounded-2xl border border-dashed border-border bg-card p-6 text-center text-sm text-ink-muted">
+    <div className="flex min-h-[200px] items-center justify-center rounded-md border border-dashed border-border p-6 text-center text-sm text-ink-muted">
       {children}
     </div>
   );
@@ -44,8 +44,8 @@ function App() {
     <div className="min-h-screen bg-surface">
       <TopBar />
       <main className="mx-auto max-w-7xl px-6 py-8">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
-          <div className="flex flex-col gap-6">
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_380px]">
+          <div className="flex flex-col gap-10 lg:border-r lg:border-border lg:pr-10">
             <HoldingsInput
               holdings={holdings}
               onHoldingsChange={setHoldings}
@@ -59,32 +59,36 @@ function App() {
             {result ? (
               <FrontierChart result={result} />
             ) : (
-              <EmptyStateCard>
-                Enter your holdings above and click "Analyze portfolio" to see your efficient
-                frontier.
-              </EmptyStateCard>
+              <EmptyState>
+                Enter your holdings above and click "Analyze" to see your efficient frontier.
+              </EmptyState>
             )}
           </div>
 
-          <aside className="flex flex-col gap-6">
+          <aside className="flex flex-col gap-8">
             {result ? (
               <>
-                <WhatThisMeans
-                  explanation={explainState.explanation}
-                  loading={explainState.loading}
-                  error={explainState.error}
-                  onExplain={() => explainState.explain(result)}
-                />
+                <WhatThisMeans explanation={explainState.explanation} error={explainState.error} />
                 <SharpeComparison
                   currentSharpe={result.current_portfolio.sharpe_ratio}
                   optimalSharpe={result.max_sharpe.sharpe_ratio}
                 />
                 <OptimalWeightsBar weights={result.max_sharpe.weights} />
+                <button
+                  type="button"
+                  onClick={() => explainState.explain(result)}
+                  disabled={explainState.loading}
+                  className="w-full rounded-md border border-primary px-4 py-3 text-sm font-medium text-primary transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {explainState.loading
+                    ? "Thinking..."
+                    : explainState.explanation
+                      ? "Regenerate explanation"
+                      : "Explain this to me"}
+                </button>
               </>
             ) : (
-              <EmptyStateCard>
-                Your results, explained in plain English, will show up here.
-              </EmptyStateCard>
+              <EmptyState>Your results, explained in plain English, will show up here.</EmptyState>
             )}
           </aside>
         </div>
