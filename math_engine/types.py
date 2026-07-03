@@ -6,14 +6,17 @@ day one and the API layer becomes a thin wrapper instead of a translation layer.
 """
 from __future__ import annotations
 
+from typing import Optional
+
 from pydantic import BaseModel
 
 
 class AssetStats(BaseModel):
     ticker: str
-    mean_return: float  # annualized
+    mean_return: float  # annualized; historical mean, or factor-implied if return_model="fama_french"
     std_dev: float  # annualized
-    beta: float  # vs. SPY
+    beta: float  # vs. SPY (single-factor, always computed regardless of return_model)
+    factor_betas: Optional[dict[str, float]] = None  # alpha, Mkt-RF, SMB, HML (monthly); only set for return_model="fama_french"
 
 
 class PortfolioStats(BaseModel):
@@ -32,6 +35,7 @@ class FrontierPoint(BaseModel):
 class MVOResult(BaseModel):
     tickers: list[str]
     lookback_years: float
+    return_model: str  # "historical" or "fama_french"
     risk_free_rate: float
     risk_free_source: str  # "treasury" or "fallback"
     frontier: list[FrontierPoint]

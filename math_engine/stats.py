@@ -80,3 +80,66 @@ def per_asset_stats(
             "beta": pd.Series(betas),
         }
     )
+
+
+# Fama-French factor columns expected in the `factors` argument below --
+# imported here (rather than importing math_engine.factors, which would be
+# a data-fetching module depending on a pure-stats one) to avoid a layering
+# inversion; factors.py is the only place that produces a DataFrame shaped
+# like this.
+FACTOR_COLUMNS = ["Mkt-RF", "SMB", "HML"]
+
+MIN_FACTOR_OBSERVATIONS = 12
+
+
+def estimate_factor_expected_returns(
+    monthly_returns: pd.DataFrame, factors: pd.DataFrame
+) -> tuple[pd.Series, pd.DataFrame]:
+    """Expected annual returns from a Fama-French 3-factor regression.
+
+    For each asset, regresses monthly excess return (return - RF) on
+    (Mkt-RF, SMB, HML) to get factor betas, then estimates expected excess
+    return as beta . mean(factor premiums) -- deliberately *excluding* the
+    regression's alpha term. Alpha is the asset's realized return left over
+    after its factor exposures are accounted for; folding it back in would
+    just reproduce the noisy historical sample mean, defeating the point of
+    using a factor model in the first place. Expected return = risk-free
+    rate + that factor-implied excess return.
+
+    Returns (expected_annual_returns, betas) where betas has one row per
+    ticker with columns alpha, Mkt-RF, SMB, HML (monthly, for diagnostics).
+
+    Both inputs must be indexed by a monthly period; only overlapping months
+    are used.
+    """
+    returns_by_period = monthly_returns.copy()
+    returns_by_period.index = returns_by_period.index.to_period("M")
+    factors_by_period = factors.copy()
+    factors_by_period.index = factors_by_period.index.to_period("M")
+
+    merged = returns_by_period.join(factors_by_period, how="inner")
+    if len(merged) < MIN_FACTOR_OBSERVATIONS:
+        raise ValueError(
+            f"Only {len(merged)} overlapping months between price history and "
+            f"Fama-French factor data; need at least {MIN_FACTOR_OBSERVATIONS}."
+        )
+
+    factor_values = merged[FACTOR_COLUMNS].to_numpy()
+    design = np.column_stack([np.ones(len(merged)), factor_values])
+    risk_free_monthly = merged["RF"].to_numpy()
+    mean_factor_premiums = factor_values.mean(axis=0)
+    mean_risk_free_monthly = float(risk_free_monthly.mean())
+
+    expected_annual = {}
+    betas = {}
+    for ticker in monthly_returns.columns:
+        excess_return = merged[ticker].to_numpy() - risk_free_monthly
+        coeffs, *_ = np.linalg.lstsq(design, excess_return, rcond=None)
+        alpha, *factor_betas = coeffs
+        betas[ticker] = dict(zip(["alpha", *FACTOR_COLUMNS], coeffs))
+        expected_excess_monthly = float(np.dot(factor_betas, mean_factor_premiums))
+        expected_annual[ticker] = (
+            expected_excess_monthly + mean_risk_free_monthly
+        ) * MONTHS_PER_YEAR
+
+    return pd.Series(expected_annual), pd.DataFrame(betas).T

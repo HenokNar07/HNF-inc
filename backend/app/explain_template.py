@@ -122,12 +122,20 @@ def generate_explanation(result: MVOResult) -> str:
     )
 
     weight_change_text = _format_weight_changes(current.weights, optimal.weights, result.tickers)
+    return_model_note = (
+        " Expected returns here come from a Fama-French 3-factor regression "
+        "(market, size, and value exposure) rather than each asset's raw "
+        "historical average -- a way of estimating return from risk exposure "
+        "instead of from noisy past performance alone."
+        if result.return_model == "fama_french"
+        else ""
+    )
     paragraph_3 = (
         f"Compared to your current weights, the mathematically optimal allocation "
         f"under Markowitz assumptions differs like this: {weight_change_text} This "
         f"isn't a recommendation to buy or sell anything -- it's what the math says "
         f"would have maximized risk-adjusted return over the lookback period you "
-        f"selected, based on historical patterns that may not repeat."
+        f"selected, based on historical patterns that may not repeat.{return_model_note}"
     )
 
     return "\n\n".join([paragraph_1, paragraph_2, paragraph_3])

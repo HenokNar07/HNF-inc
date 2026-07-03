@@ -53,6 +53,7 @@ def test_analyze_invalid_ticker_format_returns_422():
 FAKE_MVO_RESULT = {
     "tickers": ["VOO", "BND"],
     "lookback_years": 5,
+    "return_model": "historical",
     "risk_free_rate": 0.045,
     "risk_free_source": "fallback",
     "frontier": [],

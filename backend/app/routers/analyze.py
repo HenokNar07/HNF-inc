@@ -26,4 +26,5 @@ def analyze(request: Request, body: AnalyzeRequest) -> MVOResult:
         lookback_years=body.lookback_years,
         max_weight=body.max_weight,
         n_frontier_points=body.n_frontier_points,
+        return_model=body.return_model,
     )

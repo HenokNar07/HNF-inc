@@ -6,7 +6,7 @@ start (see math_engine/types.py's docstring).
 """
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, Field, StringConstraints
 
@@ -14,6 +14,7 @@ from math_engine.pipeline import (
     DEFAULT_FRONTIER_POINTS,
     DEFAULT_LOOKBACK_YEARS,
     DEFAULT_MAX_WEIGHT,
+    DEFAULT_RETURN_MODEL,
 )
 from math_engine.types import MVOResult
 
@@ -36,6 +37,7 @@ class AnalyzeRequest(BaseModel):
     lookback_years: float = Field(default=DEFAULT_LOOKBACK_YEARS, gt=0, le=30)
     max_weight: Optional[float] = Field(default=DEFAULT_MAX_WEIGHT, gt=0, le=1)
     n_frontier_points: int = Field(default=DEFAULT_FRONTIER_POINTS, ge=5, le=200)
+    return_model: Literal["historical", "fama_french"] = Field(default=DEFAULT_RETURN_MODEL)
 
 
 class ExplainRequest(BaseModel):

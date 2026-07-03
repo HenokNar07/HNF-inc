@@ -3,9 +3,11 @@ import pandas as pd
 import pytest
 
 from math_engine.stats import (
+    MONTHS_PER_YEAR,
     annualize_cov,
     annualize_mean,
     compute_beta,
+    estimate_factor_expected_returns,
     portfolio_return,
     portfolio_std,
     portfolio_variance,
@@ -77,3 +79,49 @@ def test_compute_beta_zero_market_variance_is_nan():
     market = pd.Series([0.01] * 10)  # constant -> zero variance
     asset = pd.Series(np.linspace(0.01, 0.02, 10))
     assert np.isnan(compute_beta(asset, market))
+
+
+def test_estimate_factor_expected_returns_recovers_known_betas():
+    # Build 24 months of factor data, then construct one asset's returns
+    # *exactly* from known factor exposures with zero alpha and no noise --
+    # the regression should recover those exact betas, and the expected
+    # return should equal risk_free + betas . mean(factor premiums),
+    # annualized, since there's no alpha or noise to distort it.
+    n = 24
+    rng = np.random.default_rng(0)
+    dates = pd.date_range("2020-01-31", periods=n, freq="ME")
+    factors = pd.DataFrame(
+        {
+            "Mkt-RF": rng.normal(0.01, 0.04, n),
+            "SMB": rng.normal(0.002, 0.02, n),
+            "HML": rng.normal(0.001, 0.02, n),
+            "RF": np.full(n, 0.001),
+        },
+        index=dates,
+    )
+
+    true_betas = {"Mkt-RF": 1.2, "SMB": 0.3, "HML": -0.4}
+    excess = sum(factors[k] * v for k, v in true_betas.items())
+    asset_returns = pd.DataFrame({"FAKE": factors["RF"] + excess}, index=dates)
+
+    expected_annual, betas = estimate_factor_expected_returns(asset_returns, factors)
+
+    for factor_name, beta in true_betas.items():
+        assert betas.loc["FAKE", factor_name] == pytest.approx(beta, abs=1e-8)
+    assert betas.loc["FAKE", "alpha"] == pytest.approx(0.0, abs=1e-8)
+
+    mean_factors = factors[["Mkt-RF", "SMB", "HML"]].mean()
+    expected_excess_monthly = sum(mean_factors[k] * v for k, v in true_betas.items())
+    expected_monthly = expected_excess_monthly + factors["RF"].mean()
+    assert expected_annual["FAKE"] == pytest.approx(expected_monthly * MONTHS_PER_YEAR)
+
+
+def test_estimate_factor_expected_returns_insufficient_overlap_raises():
+    dates = pd.date_range("2020-01-31", periods=5, freq="ME")
+    factors = pd.DataFrame(
+        {"Mkt-RF": [0.01] * 5, "SMB": [0.0] * 5, "HML": [0.0] * 5, "RF": [0.001] * 5},
+        index=dates,
+    )
+    asset_returns = pd.DataFrame({"FAKE": [0.01] * 5}, index=dates)
+    with pytest.raises(ValueError):
+        estimate_factor_expected_returns(asset_returns, factors)

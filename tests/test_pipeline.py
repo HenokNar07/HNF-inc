@@ -85,8 +85,34 @@ def test_run_mvo_sample_portfolio_end_to_end():
     # Max Sharpe should never be worse than an arbitrary user-chosen allocation.
     assert result.max_sharpe.sharpe_ratio >= result.current_portfolio.sharpe_ratio
 
+    assert result.return_model == "historical"
     assert len(result.frontier) > 40
     assert len(result.asset_stats) == 3
     for asset in result.asset_stats:
         assert asset.ticker in result.tickers
         assert not np.isnan(asset.beta)
+        assert asset.factor_betas is None
+
+
+@pytest.mark.network
+def test_run_mvo_fama_french_return_model_end_to_end():
+    """Same sample portfolio, but with expected returns from a Fama-French
+    3-factor regression instead of historical averages.
+
+    Run with: pytest -m network
+    Requires network access (yfinance, Treasury Fiscal Data API, and Ken
+    French's Dartmouth data library).
+    """
+    result = run_mvo(
+        tickers=["VOO", "AAPL", "BND"],
+        weights=[40, 35, 25],
+        lookback_years=5,
+        return_model="fama_french",
+    )
+
+    assert result.return_model == "fama_french"
+    assert sum(result.current_portfolio.weights.values()) == pytest.approx(1.0, abs=1e-6)
+    assert len(result.asset_stats) == 3
+    for asset in result.asset_stats:
+        assert asset.factor_betas is not None
+        assert set(asset.factor_betas) == {"alpha", "Mkt-RF", "SMB", "HML"}

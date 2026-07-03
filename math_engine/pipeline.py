@@ -10,6 +10,7 @@ from __future__ import annotations
 import numpy as np
 
 from math_engine import data, optimize, stats
+from math_engine.factors import FactorDataError, fetch_fama_french_factors
 from math_engine.risk_free import get_risk_free_rate
 from math_engine.types import AssetStats, FrontierPoint, MVOResult, PortfolioStats
 
@@ -17,6 +18,8 @@ DEFAULT_LOOKBACK_YEARS = 5
 DEFAULT_MAX_WEIGHT = 0.40
 DEFAULT_FRONTIER_POINTS = 50
 MIN_ASSETS_FOR_FRONTIER = 2
+DEFAULT_RETURN_MODEL = "historical"
+VALID_RETURN_MODELS = ("historical", "fama_french")
 
 # Input weights within this tolerance of summing to 1.0 (as a fraction) are
 # treated as already-normalized; anything further off triggers a warning.
@@ -98,6 +101,7 @@ def run_mvo(
     lookback_years: float = DEFAULT_LOOKBACK_YEARS,
     max_weight: float | None = DEFAULT_MAX_WEIGHT,
     n_frontier_points: int = DEFAULT_FRONTIER_POINTS,
+    return_model: str = DEFAULT_RETURN_MODEL,
 ) -> MVOResult:
     if len(tickers) != len(weights):
         raise ValueError(
@@ -105,6 +109,10 @@ def run_mvo(
         )
     if len(tickers) == 0:
         raise ValueError("At least one ticker is required.")
+    if return_model not in VALID_RETURN_MODELS:
+        raise ValueError(
+            f"return_model must be one of {VALID_RETURN_MODELS}, got {return_model!r}."
+        )
 
     tickers = [t.upper().strip() for t in tickers]
     if len(set(tickers)) != len(tickers):
@@ -125,10 +133,25 @@ def run_mvo(
         tickers, lookback_years
     )
 
-    mu = stats.annualize_mean(asset_returns)
     cov = stats.annualize_cov(asset_returns)
-    mu_arr = mu[tickers].to_numpy()
     cov_arr = cov.loc[tickers, tickers].to_numpy()
+
+    factor_betas = None
+    actual_return_model = return_model
+    if return_model == "fama_french":
+        try:
+            factors = fetch_fama_french_factors()
+            mu, factor_betas = stats.estimate_factor_expected_returns(asset_returns, factors)
+        except (FactorDataError, ValueError) as exc:
+            actual_return_model = "historical"
+            mu = stats.annualize_mean(asset_returns)
+            warnings.append(
+                "Couldn't compute Fama-French factor-based expected returns "
+                f"({exc}); used historical average returns instead."
+            )
+    else:
+        mu = stats.annualize_mean(asset_returns)
+    mu_arr = mu[tickers].to_numpy()
 
     risk_free_rate, rf_source = get_risk_free_rate()
     if rf_source == "fallback":
@@ -167,16 +190,22 @@ def run_mvo(
     asset_stats = [
         AssetStats(
             ticker=t,
-            mean_return=float(asset_stats_df.loc[t, "mean_return"]),
+            mean_return=float(mu_arr[i]),
             std_dev=float(asset_stats_df.loc[t, "std_dev"]),
             beta=float(asset_stats_df.loc[t, "beta"]),
+            factor_betas=(
+                {k: float(v) for k, v in factor_betas.loc[t].items()}
+                if factor_betas is not None
+                else None
+            ),
         )
-        for t in tickers
+        for i, t in enumerate(tickers)
     ]
 
     return MVOResult(
         tickers=tickers,
         lookback_years=lookback_years,
+        return_model=actual_return_model,
         risk_free_rate=risk_free_rate,
         risk_free_source=rf_source,
         frontier=frontier,
